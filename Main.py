@@ -3,13 +3,13 @@ import json
 import time
 import csv
 import os
-from dotenv import load_dotenv # Не забудь добавить этот импорт
+from dotenv import load_dotenv
 
-#  Загружаем данные из файла .env
+# Загружаем переменные из .env
 load_dotenv()
-
 API_KEY = os.getenv("NASA_API_KEY")
 
+# Формируем URL с использованием ключа из переменной окружения
 URL = f"https://api.nasa.gov/insight_weather/?api_key={API_KEY}&feedtype=json&ver=1.0"
 
 class MarsWeatherTerminal:
@@ -18,18 +18,22 @@ class MarsWeatherTerminal:
         self._init_log()
 
     def _init_log(self):
-        """Создает файл для записи, если он отсутствует."""
         if not os.path.exists(self.log_file):
-            with open(self.log_file, 'w', newline='', encoding='utf-8') as f:
+            with open(self.log_file, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow(["Timestamp", "Sol", "Season", "Temp_Avg", "Temp_Min", "Temp_Max", "Wind_Speed", "Pressure"])
 
     def fetch_weather(self):
+        if not API_KEY:
+            print("[ОШИБКА] API ключ не найден. Проверьте файл .env")
+            return None
+            
         print(f"[{time.strftime('%H:%M:%S')}] Запрос данных с Марса...")
         try:
             response = requests.get(URL, timeout=15)
             if response.status_code == 200:
                 return response.json()
+            print(f"Ошибка API: {response.status_code}")
             return None
         except Exception as e:
             print(f"Ошибка сети: {e}")
@@ -43,7 +47,6 @@ class MarsWeatherTerminal:
         latest_sol = data["sol_keys"][-1]
         weather = data[latest_sol]
 
-        # Извлечение данных (как в оригинале)
         temp_av = weather.get("AT", {}).get("av", "Н/Д")
         temp_min = weather.get("AT", {}).get("mn", "Н/Д")
         temp_max = weather.get("AT", {}).get("mx", "Н/Д")
@@ -53,7 +56,6 @@ class MarsWeatherTerminal:
         wind_speed = weather.get("HWS", {}).get("av", "Н/Д")
         last_utc = weather.get("Last_UTC", "Н/Д")
 
-        # Отрисовка 
         print("\n" + "="*45)
         print(f"   Отчет по Солу {latest_sol} | СЕЗОН: {season.upper()}")
         print("-" * 45)
@@ -67,7 +69,6 @@ class MarsWeatherTerminal:
         print(f"   Последняя запись (UTC): {last_utc}")
         print("=" * 45 + "\n")
 
-        # Сохранение в файл
         self._save_to_file(latest_sol, season, temp_av, temp_min, temp_max, wind_speed, pressure)
 
     def _save_to_file(self, sol, season, av, mn, mx, wind, press):
